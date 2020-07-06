@@ -11,8 +11,9 @@ class Graphics1D
     W = 512;
     H = 512;
     gridAmplifier = 1;
+    B = 1;
     Fmax = this.ymin; Fmin = this.ymax;
-    f = function (x) {return x*x-9;};
+    f = function (x,b) {return x*x-9;};
     zer = new Map();
     zerocount = 0;
     evaluate()
@@ -21,7 +22,7 @@ class Graphics1D
         this.Fmax = 0; this.Fmin=0;
         for(let x=this.xmin; x<this.xmax; x += (-this.xmin + this.xmax) / this.W)
         {
-            var res  = this.f(x);
+            var res  = this.f(x,this.B);
             this.buf[x] = res;
             this.Fmax = Math.max(this.Fmax,res);
             this.Fmin = Math.min(this.Fmin,res);
@@ -31,6 +32,7 @@ class Graphics1D
     {
         var graph = document.getElementById("C1");
         var ctx = graph.getContext("2d");
+        this.B = parseFloat(document.getElementById("b").value);
         this.evaluate();
         let stepx = this.W / (-this.xmin + this.xmax), stepy = this.H / (-this.ymin + this.ymax),
             zerox = -this.xmin * stepx, zeroy = this.ymax * stepy;
@@ -72,7 +74,7 @@ class Graphics1D
         ctx.beginPath();
         ctx.lineWidth = 1;
         ctx.strokeStyle = dots;
-        ctx.moveTo(zerox + this.xmin * stepx, zeroy - this.f(this.xmin) * stepy);
+        ctx.moveTo(zerox + this.xmin * stepx, zeroy - this.f(this.xmin,this.B) * stepy);
         console.log("drawing: "+this.ymin+" "+this.ymax);
         this.zerocount = 0;
         this.zer.clear();
@@ -214,9 +216,10 @@ function CALCULATE()
     x.xmin = Ixmin;
     x.ymax = Iymax;
     x.ymin = Iymin;
-    x.f = function(x) {return eval(replaceSpecialSequence(If));}
+    x.f = function(x,b) {return eval(replaceSpecialSequence(If));}
     if(document.getElementById("gridlow").checked) x.gridAmplifier=parseFloat(document.getElementById("gridamp").value);
     console.log(x.gridAmplifier+" "+typeof(x.gridAmplifier));
+    x.b = parseFloat(document.getElementById("b").value);
     x.draw();
 }
 
@@ -237,7 +240,8 @@ function autoDraw() {
     document.getElementById("C1").height = IH;
     x.xmax = Ixmax;
     x.xmin = Ixmin;
-    x.f = function(x) {return eval(replaceSpecialSequence(If));}
+    x.f = function(x,b) {return eval(replaceSpecialSequence(If));}
+    x.B = document.getElementById("b").value;
     if(document.getElementById("gridlow").checked) x.gridAmplifier=parseFloat(document.getElementById("gridamp").value);
     x.autodraw();
 }
@@ -256,6 +260,7 @@ function InitializeFieldsForNewton()
     x.xmin = Ixmin;
     x.ymax = Iymax;
     x.ymin = Iymin;
+    x.B = parseFloat(document.getElementById("b").value);
 }
 
 
@@ -267,9 +272,9 @@ async function NewtonDraw() {
     document.getElementById("derone").style.display = "block";
     let der = math.derivative(replaceDerProblems(document.getElementById("func").value),'x').toString();
     document.getElementById("derholder").innerText = der;
-    let derfunc = math.parser().evaluate("f(x) = "+document.getElementById("derholder").innerText);
+    let derfunc = math.parser().evaluate("f(x,b) = "+document.getElementById("derholder").innerText);
     let secder = math.derivative(der,'x').toString();
-    let secderfunc = math.parser().evaluate("f(x) = "+secder);
+    let secderfunc = math.parser().evaluate("f(x,b) = "+secder);
     let delay = parseFloat(document.getElementById("wait").value);
     let force = parseFloat(document.getElementById("force").value);
 
@@ -305,7 +310,7 @@ async function NewtonDraw() {
         {
             if(xnow==0) {xnext=xnow; break;}
             if(xnext!=xnow-1) xnow = xnext;
-            xnext = xnow - (derfunc(xnow))/(secderfunc(xnow));
+            xnext = xnow - (derfunc(xnow,x.B))/(secderfunc(xnow,x.B));
             iterations++;
             document.getElementById("status").innerText+="X"+iterations+" = "+xnext+"\n";
 
@@ -323,13 +328,13 @@ async function NewtonDraw() {
         }
         console.log("Done for this point. Iterations: "+iterations);
         console.log("I think root's between : "+xnow+" and "+xnext);
-        var critical = (derfunc(xnext+0.00001)*derfunc(xnext-0.00001)<0);
+        var critical = (derfunc(xnext+0.00001,x.B)*derfunc(xnext-0.00001,x.B)<0);
         if(critical) console.log("and it's critical"); else console.log("and it's not critical");
         if(critical)
         {
             displayedpoints++;
-            var fnow = function(x) {return eval(replaceSpecialSequence(document.getElementById("func").value));};
-            document.getElementById("pointsholder").innerText += "x"+displayedpoints+" = "+xnext+"  |  f(x) = "+fnow(xnext)+" |  Потребовалось итераций: "+iterations+"\n";
+            var fnow = function(x,b) {return eval(replaceSpecialSequence(document.getElementById("func").value));};
+            document.getElementById("pointsholder").innerText += "x"+displayedpoints+" = "+xnext+"  |  f(x) = "+fnow(xnext,x.B)+" |  Потребовалось итераций: "+iterations+"\n";
             document.getElementById("status").innerText+="Корень производной ="+xnext+" найден с нужной точностью. Это точка экстремума.";
         }
         else
